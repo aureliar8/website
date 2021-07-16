@@ -8,6 +8,7 @@ import (
 )
 
 func main() {
+	http.Handle("/.well-known/", http.FileServer(http.Dir("public")))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Welcome to aureliar's website")
 	})
@@ -15,5 +16,5 @@ func main() {
 	if port == "" {
 		log.Println("PORT environement variable not found ")
 	}
-	log.Println(http.ListenAndServe(":"+port, nil))
+	log.Println(http.ListenAndServe("localhost:"+port, nil))
 }
