@@ -4,17 +4,21 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 )
 
 func main() {
-	http.Handle("/.well-known/", http.FileServer(http.Dir("public")))
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "Welcome to aureliar's website")
+	muxhttp := http.NewServeMux()
+	muxhttp.Handle("/.well-known/", http.FileServer(http.Dir("public")))
+	muxhttp.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		http.Redirect(w, req, "https://"+req.Host+req.RequestURI, http.StatusMovedPermanently)
 	})
-	port := os.Getenv("PORT")
-	if port == "" {
-		log.Println("PORT environement variable not found ")
-	}
-	log.Println(http.ListenAndServe("localhost:"+port, nil))
+	httpsmux := http.NewServeMux()
+	httpsmux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Welcome to aureliar's website")
+
+	})
+	go func() {
+		log.Println(http.ListenAndServe(":8080", muxhttp))
+	}()
+	log.Println(http.ListenAndServeTLS(":4443", "fullchain.pem", "privkey.pem", httpsmux))
 }
