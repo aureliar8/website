@@ -3,25 +3,57 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
 	"golang.org/x/sync/errgroup"
 )
 
 func main() {
-	muxhttp := http.NewServeMux()
+	muxhttp := mux.NewRouter()
 	muxhttp.Handle("/.well-known/", http.FileServer(http.Dir("public")))
 	muxhttp.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 		http.Redirect(w, req, "https://"+req.Host+req.RequestURI, http.StatusMovedPermanently)
 	})
 
-	muxhttps := http.NewServeMux()
+	muxhttps := mux.NewRouter()
+	muxhttps.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "Not found")
+	})
 	muxhttps.Handle("/", http.FileServer(http.Dir("public")))
-	server := http.Server{
-		Addr:    ":4443",
-		Handler: muxhttps,
+	serverHttps := NewServer(":4443", handlers.CombinedLoggingHandler(os.Stdout, muxhttps))
+	serverHttp := NewServer(":8000", muxhttp)
+	g, ctx := errgroup.WithContext(context.Background())
+	g.Go(func() error {
+		if err := serverHttps.ListenAndServeTLS("fullchain.pem", "privkey.pem"); err != http.ErrServerClosed {
+			return err
+		}
+		return nil
+	})
+	g.Go(func() error {
+		if err := serverHttp.ListenAndServe(); err != http.ErrServerClosed {
+			return err
+		}
+		return nil
+	})
+	go func() {
+		<-ctx.Done()
+		serverHttps.Close()
+		serverHttp.Close()
+	}()
+	log.Println(g.Wait())
+}
+
+func NewServer(addr string, handler http.Handler) http.Server {
+	return http.Server{
+		Addr:    addr,
+		Handler: handler,
 		// https://blog.cloudflare.com/exposing-go-on-the-internet/
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -41,23 +73,4 @@ func main() {
 			PreferServerCipherSuites: true,
 		},
 	}
-	g, ctx := errgroup.WithContext(context.Background())
-	g.Go(func() error {
-		if err := server.ListenAndServeTLS("fullchain.pem", "privkey.pem"); err != http.ErrServerClosed {
-			return err
-		}
-		return nil
-	})
-	g.Go(func() error {
-		if err := http.ListenAndServe(":8000", muxhttp); err != http.ErrServerClosed {
-			return err
-		}
-		return nil
-	})
-	go func() {
-		<-ctx.Done()
-		server.Close()
-		//HttpServer.Close()
-	}()
-	log.Println(g.Wait())
 }
