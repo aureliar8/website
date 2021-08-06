@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -19,10 +18,7 @@ func main() {
 	})
 
 	muxhttps := http.NewServeMux()
-	muxhttps.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "Welcome to aureliar's website")
-
-	})
+	muxhttps.Handle("/", http.FileServer(http.Dir("public")))
 	server := http.Server{
 		Addr:    ":4443",
 		Handler: muxhttps,
@@ -53,7 +49,7 @@ func main() {
 		return nil
 	})
 	g.Go(func() error {
-		if err := http.ListenAndServe(":8080", muxhttp); err != http.ErrServerClosed {
+		if err := http.ListenAndServe(":8000", muxhttp); err != http.ErrServerClosed {
 			return err
 		}
 		return nil
