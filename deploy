@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-
-
-scp website pi:/opt/website/website-new
-ssh pi 'mv /opt/website/website-new /opt/website/website && sudo systemctl restart website'
