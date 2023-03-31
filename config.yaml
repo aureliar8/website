@@ -1,11 +1,10 @@
-baseURL: 'https://username.github.io/'
+baseURL: 'https://aureliar.net'
 title: Aureliar's website
 author: Aurélien Deroide
 languageCode: en-us
 pygmentsCodeFences: true
 enableRobotsTXT: false
 theme: hugo-flex
-publishDir: docs
 
 permalinks:
   posts: '/:filename/'
