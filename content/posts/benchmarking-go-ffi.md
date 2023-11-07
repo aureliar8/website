@@ -1,25 +1,27 @@
 ---
 title: "Benchmarking Go FFI"
-date: 2023-04-11T21:27:49+02:00
+date: 2023-10-08T20:27:49+02:00
 ---
 
 All programming languages offer a way to call C function and libraries, via a mechanism called FFI (Foreign Function Interface).
-This allows for compatibility with code written in a different programming language or in some case to make certain operation faster (This is what numpy does in python).
+This allows for compatibility with code written in a different programming language or in some case to make certain operation faster (This is what numpy does in python: it's a python lib that perform computation written in C).
 
-There are contradictory sources on the internet that claims that CGO (the GO FFI name) is either slow or fast enough so it doesn't matter. 
+Conflicting information exists online regarding the performance of CGO, the FFI feature in Go.
+Some sources assert that it's slow, while others argue that its speed is sufficient and that the overhead is actually negligible.
 
 Let's measure the actually cost by running some benchmarks.
 
 # First, a baseline of the cost of a function call
 
-We'll use a very simple pure go function that adds numbers:
+To establish a baseline, we'll measure the cost of a function call using a simple,
+pure Go function that performs an integer addition:
 ```go
 func add(x, y uint64) uint64{
   return x + y
 }
 ```
 
-And the associated benchmark:
+Via the following benchmark:
 ```go
 func BenchmarkAddPureGo(b *testing.B) {
 	x := uint64(0x12345678)
@@ -199,10 +201,9 @@ func addcgo(x, y uint64) uint64 {
 
 ```
 
-TODO: make this a real note somehow
 
 Note that this code needs to be in a different file as we can't `import "C"` from test files due to
-a limitation of the go toolchain: https://github.com/golang/go/issues/20381
+a [limitation of the go toolchain](https://github.com/golang/go/issues/20381)
 
 
 Here is the associated benchmark
@@ -217,7 +218,7 @@ func BenchmarkAddCGo(b *testing.B) {
 }
 ```
 
-And it's result:
+And the result:
 ```
 ❯ go test . -bench=BenchmarkAddCGo
 goos: linux
@@ -233,17 +234,16 @@ Using the cgo version is indeed slower: it takes around 40 nanoseconds for to pr
 
 # Conclusion
 
-Using the Go FFI to call a C function has an overhead of approximately 40 nanoseconds.
-For very trivial function that takes a few nanoseconds to execute like in this benchmark, it creates a serious slowdown.
-However, in most practical cases, this overhead will probably be marginal.
-If the C function takes 1 µs to execute, adding 40 ns of CGO overhead only represents a 4% overhead.
-And if it takes 1ms, it's only 0.004% overhead.
+Utilizing the Go FFI to call a C function incurs an overhead of approximately 40 nanoseconds.
+For exceptionally simple functions that execute within a few nanoseconds, this overhead can significantly impede performance.
+Nevertheless, in most practical scenarios, this additional load is likely to be trivial.
+For instance, if the C function requires 1 µs to execute, the addition of 40 ns due to CGO represents a mere 4% overhead.
+When the C function execution time extends to 1ms, the CGO overhead diminishes to only 0.004%.
 
-Using CGO also has an other downside: it's impossible for the compiler to inline those C function, and thus can prevent some of the compiler optimizations to take place.
-But once again if the C function are large enough, this shouldn't impact the performance much.
+CGO usage presents another drawback: it hampers the compiler's ability to inline these C functions, potentially hindering some compiler optimizations.
+But again, if the C functions are substantial enough, this limitation should have minimal impact on performance.
 
-Thus, using CGO in your next project will likely not create a performance issue.
+Consequently, incorporating CGO into your next project is unlikely to create significant performance issues.
 
-As a closing thought, the benchmark here only measure the overhead for calling CGO in a single thread.
-It seems that there is also some contention issues if you use CGO on large multicore servers
-https://shane.ai/posts/cgo-performance-in-go1.21/
+A final note: the benchmark only measures the overhead of calling CGO within a single thread.
+It appears that using CGO on large multicore servers may introduce small contention issues, as discussed in more detail here: https://shane.ai/posts/cgo-performance-in-go1.21/
